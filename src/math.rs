@@ -1,5 +1,5 @@
-use std::ops::{Add, Mul, Sub};
 use std::fmt;
+use std::ops::{Add, Mul, Sub};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BigNumber {
@@ -14,12 +14,22 @@ impl BigNumber {
         bn
     }
 
+    pub fn to_f64(&self) -> f64 {
+        self.mantissa * 10f64.powi(self.exponent as i32)
+    }
+
     pub fn zero() -> Self {
-        BigNumber { mantissa: 0.0, exponent: 0 }
+        BigNumber {
+            mantissa: 0.0,
+            exponent: 0,
+        }
     }
 
     pub fn one() -> Self {
-        BigNumber { mantissa: 1.0, exponent: 0 }
+        BigNumber {
+            mantissa: 1.0,
+            exponent: 0,
+        }
     }
 
     fn normalize(&mut self) {
@@ -42,8 +52,12 @@ impl Add for BigNumber {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        if self.mantissa == 0.0 { return other; }
-        if other.mantissa == 0.0 { return self; }
+        if self.mantissa == 0.0 {
+            return other;
+        }
+        if other.mantissa == 0.0 {
+            return self;
+        }
 
         let diff = self.exponent - other.exponent;
         if diff.abs() > 15 {
@@ -64,22 +78,28 @@ impl Sub for BigNumber {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        if other.mantissa == 0.0 { return self; }
+        if other.mantissa == 0.0 {
+            return self;
+        }
         // Simple subtraction, assuming we don't go negative for now for simplicity in this snippet
         // In a real game we need to handle negatives or clamp to zero
         let diff = self.exponent - other.exponent;
         if diff.abs() > 15 {
-            if diff > 0 { return self; } else { return BigNumber::zero(); } // heuristic
+            if diff > 0 {
+                return self;
+            } else {
+                return BigNumber::zero();
+            } // heuristic
         }
 
         if diff > 0 {
             let num = self.mantissa - other.mantissa / 10f64.powi(diff as i32);
             BigNumber::new(num, self.exponent)
         } else {
-             // If we are here, we might be subtracting a larger number from a smaller one
-             // For resource costs, usually we check can_afford first.
-             let num = self.mantissa / 10f64.powi((-diff) as i32) - other.mantissa;
-             BigNumber::new(num, other.exponent)
+            // If we are here, we might be subtracting a larger number from a smaller one
+            // For resource costs, usually we check can_afford first.
+            let num = self.mantissa / 10f64.powi((-diff) as i32) - other.mantissa;
+            BigNumber::new(num, other.exponent)
         }
     }
 }
@@ -92,10 +112,18 @@ impl Mul<f64> for BigNumber {
     }
 }
 
+impl Mul<BigNumber> for BigNumber {
+    type Output = Self;
+
+    fn mul(self, rhs: BigNumber) -> Self {
+        BigNumber::new(self.mantissa * rhs.mantissa, self.exponent + rhs.exponent)
+    }
+}
+
 impl fmt::Display for BigNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.exponent < 3 {
-             write!(f, "{:.2}", self.mantissa * 10f64.powi(self.exponent as i32))
+            write!(f, "{:.2}", self.mantissa * 10f64.powi(self.exponent as i32))
         } else {
             write!(f, "{:.2}e{}", self.mantissa, self.exponent)
         }

@@ -30,7 +30,11 @@ fn main() {
                         .or(in_state(GameState::Playing))
                         .or(in_state(GameState::MainMenu)),
                 ), // Run always for now
+                systems::handle_buy_interactions,
                 ui::update_resource_ui,
+                ui::spawn_generator_ui,
+                ui::update_generator_ui,
+                ui::update_generator_text,
             ),
         )
         .run();

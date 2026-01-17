@@ -16,7 +16,9 @@ pub struct Generator {
     pub output_resource: String,
     /// How much it produces per second
     pub base_production: BigNumber,
-    pub count: u32,
+    pub count: BigNumber,
+    /// Number of generators manually purchased (affects cost)
+    pub purchased_count: BigNumber,
     /// Resource ID required to buy this
     pub cost_resource: String,
     pub base_cost: BigNumber,
@@ -27,3 +29,6 @@ pub struct Generator {
 pub struct Player {
     pub money: BigNumber,
 }
+
+#[derive(Component)]
+pub struct BuyGeneratorButton(pub Entity);
