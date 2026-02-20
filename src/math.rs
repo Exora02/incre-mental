@@ -32,6 +32,13 @@ impl BigNumber {
         }
     }
 
+    pub fn gte(&self, other: &Self) -> bool {
+        if self.exponent != other.exponent {
+            return self.exponent > other.exponent;
+        }
+        self.mantissa >= other.mantissa
+    }
+
     fn normalize(&mut self) {
         if self.mantissa == 0.0 {
             self.exponent = 0;
@@ -127,5 +134,56 @@ impl fmt::Display for BigNumber {
         } else {
             write!(f, "{:.2}e{}", self.mantissa, self.exponent)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BigNumber;
+
+    #[test]
+    fn normalizes_large_mantissa() {
+        let value = BigNumber::new(1234.0, 0);
+        assert_eq!(value, BigNumber::new(1.234, 3));
+    }
+
+    #[test]
+    fn add_handles_same_exponent() {
+        let lhs = BigNumber::new(2.0, 3);
+        let rhs = BigNumber::new(3.5, 3);
+        assert_eq!(lhs + rhs, BigNumber::new(5.5, 3));
+    }
+
+    #[test]
+    fn add_handles_far_apart_exponents() {
+        let lhs = BigNumber::new(9.9, 20);
+        let rhs = BigNumber::new(1.0, 0);
+        assert_eq!(lhs + rhs, lhs);
+    }
+
+    #[test]
+    fn subtract_handles_basic_case() {
+        let lhs = BigNumber::new(9.0, 2);
+        let rhs = BigNumber::new(4.0, 2);
+        assert_eq!(lhs - rhs, BigNumber::new(5.0, 2));
+    }
+
+    #[test]
+    fn multiply_by_scalar_and_bignumber() {
+        let value = BigNumber::new(2.5, 3);
+        assert_eq!(value * 4.0, BigNumber::new(1.0, 4));
+
+        let other = BigNumber::new(2.0, 2);
+        assert_eq!(value * other, BigNumber::new(5.0, 5));
+    }
+
+    #[test]
+    fn gte_compares_exponent_then_mantissa() {
+        let a = BigNumber::new(1.1, 6);
+        let b = BigNumber::new(9.9, 5);
+        let c = BigNumber::new(1.2, 6);
+
+        assert!(a.gte(&b));
+        assert!(!a.gte(&c));
     }
 }

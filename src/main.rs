@@ -14,7 +14,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Incre-mental".to_string(),
-                resolution: WindowResolution::new(360.0, 800.0), // Mobile-like portrait
+                resolution: WindowResolution::new(360, 800), // Mobile-like portrait
                 resizable: true,
                 ..default()
             }),

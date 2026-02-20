@@ -1,14 +1,59 @@
 use crate::components::*;
+use crate::systems::{can_afford, generator_cost};
 use bevy::prelude::*;
+
+struct UiTheme;
+
+impl UiTheme {
+    const HEADER_HEIGHT: f32 = 84.0;
+    const CARD_HEIGHT: f32 = 72.0;
+    const CARD_BORDER: f32 = 1.0;
+    const CONTENT_PADDING: f32 = 12.0;
+    const CARD_MARGIN: f32 = 10.0;
+    const BUTTON_WIDTH: f32 = 126.0;
+    const BUTTON_HEIGHT: f32 = 42.0;
+
+    fn panel_bg() -> Color {
+        Color::srgba(0.06, 0.08, 0.13, 0.86)
+    }
+
+    fn card_bg() -> Color {
+        Color::srgba(0.10, 0.13, 0.20, 0.92)
+    }
+
+    fn accent() -> Color {
+        Color::srgb(0.27, 0.83, 0.94)
+    }
+
+    fn accent_soft() -> Color {
+        Color::srgb(0.64, 0.70, 0.86)
+    }
+
+    fn button_ready() -> Color {
+        Color::srgba(0.20, 0.64, 0.48, 1.0)
+    }
+
+    fn button_ready_hover() -> Color {
+        Color::srgba(0.24, 0.72, 0.54, 1.0)
+    }
+
+    fn button_ready_pressed() -> Color {
+        Color::srgba(0.16, 0.52, 0.40, 1.0)
+    }
+
+    fn button_locked() -> Color {
+        Color::srgba(0.42, 0.18, 0.22, 0.65)
+    }
+}
 
 pub fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     // Background
     commands.spawn((
         Sprite::from_image(asset_server.load("bg_space_hex.png")),
-        Transform::from_scale(Vec3::new(1.0, 1.0, 1.0)),
+        Transform::from_xyz(0.0, 0.0, -10.0),
     ));
 
     // Root node
@@ -26,14 +71,15 @@ pub fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn((
                     Node {
                         width: Val::Percent(100.0),
-                        height: Val::Px(80.0),
+                        height: Val::Px(UiTheme::HEADER_HEIGHT),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::SpaceEvenly,
-                        border: UiRect::bottom(Val::Px(2.0)),
+                        border: UiRect::bottom(Val::Px(UiTheme::CARD_BORDER)),
+                        padding: UiRect::horizontal(Val::Px(UiTheme::CONTENT_PADDING)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgba(0.05, 0.05, 0.1, 0.8)),
-                    BorderColor(Color::srgb(0.0, 1.0, 1.0)),
+                    BackgroundColor(UiTheme::panel_bg()),
+                    BorderColor::all(UiTheme::accent()),
                 ))
                 .with_children(|header| {
                     // Energy Display
@@ -61,7 +107,7 @@ pub fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     font_size: 24.0,
                                     ..default()
                                 },
-                                TextColor(Color::srgb(0.0, 1.0, 1.0)),
+                                TextColor(UiTheme::accent()),
                                 ResourceDisplay {
                                     resource_name: "Energy".to_string(),
                                 },
@@ -93,7 +139,7 @@ pub fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     font_size: 24.0,
                                     ..default()
                                 },
-                                TextColor(Color::srgb(0.5, 0.0, 0.5)),
+                                TextColor(UiTheme::accent_soft()),
                                 ResourceDisplay {
                                     resource_name: "Matter".to_string(),
                                 },
@@ -109,19 +155,19 @@ pub fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         flex_grow: 1.0,
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(UiTheme::CONTENT_PADDING)),
                         ..default()
                     },
                     GeneratorList,
                 ))
                 .with_children(|body| {
                     body.spawn((
-                        Text::new("Production Online"),
+                        Text::new("Production Grid"),
                         TextFont {
-                            font_size: 30.0,
+                            font_size: 28.0,
                             ..default()
                         },
-                        TextColor(Color::WHITE),
+                        TextColor(UiTheme::accent()),
                     ));
                 });
         });
@@ -163,85 +209,78 @@ pub fn spawn_generator_ui(
     query_generators: Query<(Entity, &Generator), Added<Generator>>,
     query_list: Query<Entity, With<GeneratorList>>,
 ) {
-    if let Ok(list_entity) = query_list.get_single() {
-        for (entity, generator) in query_generators.iter() {
-            let container = commands
-                .spawn((
+    if let Ok(list_entity) = query_list.single() {
+        commands.entity(list_entity).with_children(|list| {
+            for (entity, generator) in query_generators.iter() {
+                list.spawn((
                     Node {
                         width: Val::Percent(100.0),
-                        height: Val::Px(60.0),
-                        margin: UiRect::bottom(Val::Px(10.0)),
+                        height: Val::Px(UiTheme::CARD_HEIGHT),
+                        margin: UiRect::bottom(Val::Px(UiTheme::CARD_MARGIN)),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::SpaceBetween,
-                        padding: UiRect::horizontal(Val::Px(10.0)),
+                        padding: UiRect::horizontal(Val::Px(UiTheme::CONTENT_PADDING)),
+                        border: UiRect::all(Val::Px(UiTheme::CARD_BORDER)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgba(0.2, 0.2, 0.3, 0.8)),
-                    BorderColor(Color::WHITE),
-                ))
-                .set_parent(list_entity)
-                .id();
-
-            commands.entity(container).with_children(|parent| {
-                // Name
-                parent.spawn((
-                    Text::new(&generator.name),
-                    TextFont {
-                        font_size: 20.0,
-                        ..default()
-                    },
-                    TextColor(Color::WHITE),
-                ));
-
-                // Production Output
-                parent.spawn((
-                    Text::new("Output: 0.00/s"),
-                    TextFont {
-                        font_size: 14.0,
-                        ..default()
-                    },
-                    TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                    GeneratorOutputText(entity),
-                ));
-
-                // Count
-                parent.spawn((
-                    Text::new(format!("x{}", generator.count)),
-                    TextFont {
-                        font_size: 20.0,
-                        ..default()
-                    },
-                    TextColor(Color::WHITE),
-                    GeneratorCountText(entity),
-                ));
-
-                // Buy Button
-                parent
-                    .spawn((
-                        Button,
-                        Node {
-                            width: Val::Px(120.0),
-                            height: Val::Px(40.0),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgba(0.0, 0.5, 0.0, 1.0)),
-                        BuyGeneratorButton(entity),
-                    ))
-                    .with_children(|btn| {
-                        btn.spawn((
-                            Text::new("Buy"),
+                    BackgroundColor(UiTheme::card_bg()),
+                    BorderColor::all(UiTheme::accent_soft()),
+                    children![
+                        (
+                            Text::new(&generator.name),
                             TextFont {
-                                font_size: 16.0,
+                                font_size: 18.0,
                                 ..default()
                             },
                             TextColor(Color::WHITE),
-                            GeneratorCostText(entity),
-                        ));
-                    });
-            });
-        }
+                        ),
+                        (
+                            Text::new("Output: 0.00/s"),
+                            TextFont {
+                                font_size: 13.0,
+                                ..default()
+                            },
+                            TextColor(UiTheme::accent_soft()),
+                            GeneratorOutputText(entity),
+                        ),
+                        (
+                            Text::new(format!("x{}", generator.count)),
+                            TextFont {
+                                font_size: 18.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                            GeneratorCountText(entity),
+                        ),
+                        (
+                            Button,
+                            Node {
+                                width: Val::Px(UiTheme::BUTTON_WIDTH),
+                                height: Val::Px(UiTheme::BUTTON_HEIGHT),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                border: UiRect::all(Val::Px(UiTheme::CARD_BORDER)),
+                                ..default()
+                            },
+                            BorderColor::all(UiTheme::accent_soft()),
+                            BackgroundColor(UiTheme::button_ready()),
+                            BuyGeneratorButton(entity),
+                            children![
+                                (
+                                    Text::new("Buy"),
+                                    TextFont {
+                                        font_size: 16.0,
+                                        ..default()
+                                    },
+                                    TextColor(Color::WHITE),
+                                    GeneratorCostText(entity),
+                                )
+                            ],
+                        ),
+                    ],
+                ));
+            }
+        });
     }
 }
 
@@ -262,10 +301,7 @@ pub fn update_generator_text(
 ) {
     for (mut text, link) in cost_text.iter_mut() {
         if let Ok(generator) = generators.get(link.0) {
-            let cost_mult = generator
-                .cost_coefficient
-                .powf(generator.purchased_count.to_f64());
-            let cost = generator.base_cost * cost_mult;
+            let cost = generator_cost(generator);
             text.0 = format!("Buy: {:.1}", cost);
         }
     }
@@ -282,7 +318,7 @@ pub fn update_generator_text(
             let output_name = if generator.output_resource == "Energy" {
                 "Energy"
             } else {
-                "Gen"
+                "Lower Tier"
             };
             text.0 = format!("+{:.2} {}/s", production, output_name);
         }
@@ -296,34 +332,24 @@ pub fn update_generator_ui(
 ) {
     for (link, mut bg, interaction) in buttons.iter_mut() {
         if let Ok(generator) = generators.get(link.0) {
-            let cost_mult = generator
-                .cost_coefficient
-                .powf(generator.purchased_count.to_f64());
-            let cost = generator.base_cost * cost_mult;
+            let cost = generator_cost(generator);
 
-            let mut can_afford = false;
+            let mut is_affordable = false;
             for resource in resources.iter() {
                 if resource.name == generator.cost_resource {
-                    // Check affordability
-                    let diff = resource.amount.exponent - cost.exponent;
-                    if diff > 0 {
-                        can_afford = true;
-                    } else if diff == 0 && resource.amount.mantissa >= cost.mantissa {
-                        can_afford = true;
-                    }
+                    is_affordable = can_afford(resource.amount, cost);
                     break; // Found the resource, no need to check others
                 }
             }
 
-            if can_afford {
+            if is_affordable {
                 match *interaction {
-                    Interaction::Pressed => *bg = BackgroundColor(Color::srgba(0.0, 0.3, 0.0, 1.0)),
-                    Interaction::Hovered => *bg = BackgroundColor(Color::srgba(0.0, 0.6, 0.0, 1.0)),
-                    Interaction::None => *bg = BackgroundColor(Color::srgba(0.0, 0.5, 0.0, 1.0)),
+                    Interaction::Pressed => *bg = BackgroundColor(UiTheme::button_ready_pressed()),
+                    Interaction::Hovered => *bg = BackgroundColor(UiTheme::button_ready_hover()),
+                    Interaction::None => *bg = BackgroundColor(UiTheme::button_ready()),
                 }
             } else {
-                // Dimmed red if can't afford
-                *bg = BackgroundColor(Color::srgba(0.5, 0.0, 0.0, 0.5));
+                *bg = BackgroundColor(UiTheme::button_locked());
             }
         }
     }
