@@ -2,6 +2,26 @@ use crate::components::*;
 use crate::systems::{can_afford, generator_cost};
 use bevy::prelude::*;
 
+#[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
+pub enum UiTab {
+    #[default]
+    Generators,
+    Upgrades,
+}
+
+#[derive(Component)]
+pub struct TabButton(pub UiTab);
+
+#[derive(Component)]
+pub struct UpgradeList;
+
+#[derive(Component)]
+pub struct UpgradeCostText(Entity);
+
+#[derive(Component)]
+pub struct UpgradeNameText(Entity);
+
+
 struct UiTheme;
 
 impl UiTheme {
@@ -352,5 +372,99 @@ pub fn update_generator_ui(
                 *bg = BackgroundColor(UiTheme::button_locked());
             }
         }
+    }
+}
+
+
+pub fn handle_tab_switches(
+    mut next_state: ResMut<NextState<UiTab>>,
+    interactions: Query<(&Interaction, &TabButton), Changed<Interaction>>,
+) {
+    for (interaction, tab_button) in interactions.iter() {
+        if *interaction == Interaction::Pressed {
+            next_state.set(tab_button.0);
+        }
+    }
+}
+
+pub fn update_tab_ui(
+    current_tab: Res<State<UiTab>>,
+    mut tab_buttons: Query<(&TabButton, &mut BackgroundColor)>,
+    mut lists: Query<(Entity, &mut Node), Or<(With<GeneratorList>, With<UpgradeList>)>>,
+    has_gen: Query<(), With<GeneratorList>>,
+) {
+    if !current_tab.is_changed() { return; }
+
+    // Update button colors
+    for (button, mut bg) in tab_buttons.iter_mut() {
+        if button.0 == *current_tab.get() {
+            *bg = BackgroundColor(UiTheme::button_ready());
+        } else {
+            *bg = BackgroundColor(UiTheme::button_locked());
+        }
+    }
+
+    // Toggle list visibility
+    for (entity, mut node) in lists.iter_mut() {
+        let is_gen_list = has_gen.get(entity).is_ok();
+        if (is_gen_list && *current_tab.get() == UiTab::Generators) ||
+           (!is_gen_list && *current_tab.get() == UiTab::Upgrades) {
+            node.display = Display::Flex;
+        } else {
+            node.display = Display::None;
+        }
+    }
+}
+
+pub fn spawn_upgrade_ui(
+    mut commands: Commands,
+    query_upgrades: Query<(Entity, &Upgrade), Added<Upgrade>>,
+    query_list: Query<Entity, With<UpgradeList>>,
+) {
+    if let Ok(list_entity) = query_list.get_single() {
+        commands.entity(list_entity).with_children(|list| {
+            for (entity, upgrade) in query_upgrades.iter() {
+                list.spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Px(UiTheme::CARD_HEIGHT * 1.2), // slightly taller
+                        margin: UiRect::bottom(Val::Px(UiTheme::CARD_MARGIN)),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::SpaceBetween,
+                        padding: UiRect::horizontal(Val::Px(UiTheme::CONTENT_PADDING)),
+                        border: UiRect::all(Val::Px(UiTheme::CARD_BORDER)),
+                        ..default()
+                    },
+                    BackgroundColor(UiTheme::card_bg()),
+                    BorderColor(UiTheme::accent_soft().into()),
+                )).with_children(|card| {
+                    card.spawn(Node {
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::FlexStart,
+                        ..default()
+                    }).with_children(|info| {
+                        info.spawn((Text::new(&upgrade.name), TextFont { font_size: 20.0, ..default() }, TextColor(Color::WHITE), UpgradeNameText(entity)));
+                        info.spawn((Text::new(&upgrade.description), TextFont { font_size: 14.0, ..default() }, TextColor(UiTheme::accent_soft())));
+                    });
+
+                    card.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(UiTheme::BUTTON_WIDTH),
+                            height: Val::Px(UiTheme::BUTTON_HEIGHT),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border: UiRect::all(Val::Px(UiTheme::CARD_BORDER)),
+                            ..default()
+                        },
+                        BorderColor(UiTheme::accent_soft().into()),
+                        BackgroundColor(UiTheme::button_ready()),
+                        BuyUpgradeButton(entity),
+                    )).with_children(|btn| {
+                        btn.spawn((Text::new(format!("Cost: {}", upgrade.cost_amount)), TextFont { font_size: 14.0, ..default() }, TextColor(Color::WHITE), UpgradeCostText(entity)));
+                    });
+                });
+            }
+        });
     }
 }
