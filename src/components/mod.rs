@@ -32,3 +32,26 @@ pub struct Player {
 
 #[derive(Component)]
 pub struct BuyGeneratorButton(pub Entity);
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum UpgradeEffect {
+    ProductionMultiplier(f64),
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct Upgrade {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub cost_resource: String,
+    pub cost_amount: BigNumber,
+    pub is_purchased: bool,
+    pub effect: UpgradeEffect,
+    pub target_generator: Option<String>, // None means global
+}
+
+#[derive(Component)]
+pub struct BuyUpgradeButton(pub Entity);
+
+#[derive(Component)]
+pub struct PrestigeButton;

@@ -118,21 +118,65 @@ pub fn setup_resources(mut commands: Commands) {
             cost_coefficient: tuning.cost_coefficient,
         });
     }
+    // Upgrades
+    commands.spawn(Upgrade {
+        id: "upg_energy_1".to_string(),
+        name: "Efficient Wiring".to_string(),
+        description: "Doubles Energy production globally.".to_string(),
+        cost_resource: "Energy".to_string(),
+        cost_amount: BigNumber::new(100.0, 0),
+        is_purchased: false,
+        effect: UpgradeEffect::ProductionMultiplier(2.0),
+        target_generator: None,
+    });
+
+    commands.spawn(Upgrade {
+        id: "upg_fusion_1".to_string(),
+        name: "Fusion Core Mk II".to_string(),
+        description: "Fusion Cells are 3x more productive.".to_string(),
+        cost_resource: "Energy".to_string(),
+        cost_amount: BigNumber::new(500.0, 0),
+        is_purchased: false,
+        effect: UpgradeEffect::ProductionMultiplier(3.0),
+        target_generator: Some("gen_energy_1".to_string()),
+    });
 }
+
 
 // Production system
 pub fn production_tick(
     time: Res<Time>,
     mut generator_queries: ParamSet<(Query<&Generator>, Query<&mut Generator>)>,
     mut query_resources: Query<&mut GameResource>,
+    query_upgrades: Query<&Upgrade>,
 ) {
     let delta = time.delta_secs_f64();
     let mut production_buffer: HashMap<String, BigNumber> = HashMap::new();
 
-    // 1. Calculate Production
+    // 1. Calculate global multiplier and specific multipliers
+    let mut global_multiplier = 1.0;
+    let mut specific_multipliers: HashMap<String, f64> = HashMap::new();
+
+    for upgrade in query_upgrades.iter() {
+        if upgrade.is_purchased {
+            match upgrade.effect {
+                UpgradeEffect::ProductionMultiplier(mult) => {
+                    if let Some(ref target) = upgrade.target_generator {
+                        *specific_multipliers.entry(target.clone()).or_insert(1.0) *= mult;
+                    } else {
+                        global_multiplier *= mult;
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Calculate Production
     for generator in generator_queries.p0().iter() {
         if generator.count.mantissa > 0.0 {
-            let production = generator.base_production * generator.count.to_f64() * delta;
+            let spec_mult = specific_multipliers.get(&generator.id).unwrap_or(&1.0);
+            let total_mult = global_multiplier * *spec_mult;
+            let production = generator.base_production * generator.count.to_f64() * delta * total_mult;
 
             if let Some(current) = production_buffer.get_mut(&generator.output_resource) {
                 *current = *current + production;
@@ -142,14 +186,14 @@ pub fn production_tick(
         }
     }
 
-    // 2. Apply to Resources
+    // 3. Apply to Resources
     for mut resource in query_resources.iter_mut() {
         if let Some(amount) = production_buffer.get(&resource.name) {
             resource.amount = resource.amount + *amount;
         }
     }
 
-    // 3. Apply to Generators
+    // 4. Apply to Generators
     // Only affects TOTAL count, not purchased count
     for mut generator in generator_queries.p1().iter_mut() {
         if let Some(amount) = production_buffer.get(&generator.id) {
@@ -297,5 +341,49 @@ mod tests {
         assert!((300..=600).contains(&t3));
         assert!((3000..=7200).contains(&t4));
         assert!(t10 > 30 * 24 * 3600);
+    }
+}
+
+
+pub fn handle_buy_upgrades(
+    _commands: Commands,
+    interactions: Query<(&Interaction, &BuyUpgradeButton), Changed<Interaction>>,
+    mut upgrades: Query<&mut Upgrade>,
+    mut resource_queries: ParamSet<(Query<&GameResource>, Query<&mut GameResource>)>,
+) {
+    for (interaction, buy_button) in interactions.iter() {
+        if *interaction == Interaction::Pressed {
+            if let Ok(mut upgrade) = upgrades.get_mut(buy_button.0) {
+                if upgrade.is_purchased {
+                    continue; // Already bought
+                }
+                
+                let cost = upgrade.cost_amount;
+
+                // Check affordability
+                let mut can_buy = false;
+                for resource in resource_queries.p0().iter() {
+                    if resource.name == upgrade.cost_resource {
+                        can_buy = can_afford(resource.amount, cost);
+                        break;
+                    }
+                }
+
+                if can_buy {
+                    // Pay the cost
+                    for mut resource in resource_queries.p1().iter_mut() {
+                        if resource.name == upgrade.cost_resource {
+                            resource.amount = resource.amount - cost;
+                            break;
+                        }
+                    }
+
+                    upgrade.is_purchased = true;
+                    println!("Bought upgrade: {}", upgrade.name);
+                } else {
+                    println!("Cannot afford upgrade: {}", upgrade.name);
+                }
+            }
+        }
     }
 }
