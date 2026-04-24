@@ -15,7 +15,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Incre-mental".to_string(),
-                resolution: WindowResolution::new(1280, 720)
+                resolution: WindowResolution::new(1280, 720),
                 resizable: true,
                 ..default()
             }),

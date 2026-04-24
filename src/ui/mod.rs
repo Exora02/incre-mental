@@ -421,7 +421,7 @@ pub fn spawn_upgrade_ui(
     query_upgrades: Query<(Entity, &Upgrade), Added<Upgrade>>,
     query_list: Query<Entity, With<UpgradeList>>,
 ) {
-    if let Ok(list_entity) = query_list.get_single() {
+    if let Ok(list_entity) = query_list.single() {
         commands.entity(list_entity).with_children(|list| {
             for (entity, upgrade) in query_upgrades.iter() {
                 list.spawn((
@@ -436,7 +436,7 @@ pub fn spawn_upgrade_ui(
                         ..default()
                     },
                     BackgroundColor(UiTheme::card_bg()),
-                    BorderColor(UiTheme::accent_soft().into()),
+                    BorderColor::all(UiTheme::accent_soft()),
                 )).with_children(|card| {
                     card.spawn(Node {
                         flex_direction: FlexDirection::Column,
@@ -457,7 +457,7 @@ pub fn spawn_upgrade_ui(
                             border: UiRect::all(Val::Px(UiTheme::CARD_BORDER)),
                             ..default()
                         },
-                        BorderColor(UiTheme::accent_soft().into()),
+                        BorderColor::all(UiTheme::accent_soft()),
                         BackgroundColor(UiTheme::button_ready()),
                         BuyUpgradeButton(entity),
                     )).with_children(|btn| {
